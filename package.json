@@ -1,6 +1,6 @@
 {
-  "name": "struct-boilerplate",
-  "description": "This is a boilerplate for smart contract development.",
+  "name": "struct-lossless-module",
+  "description": "Lossless module implementation.",
   "version": "1.0.0",
   "main": ".eslintrc.js",
   "directories": {
@@ -12,14 +12,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/struct-defi/boilerplate.git"
+    "url": "git+https://github.com/struct-defi/lossless-module.git"
   },
   "author": "Pranesh A S",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/struct-defi/boilerplate/issues"
+    "url": "https://github.com/struct-defi/lossless-module/issues"
   },
-  "homepage": "https://github.com/struct-defi/boilerplate#readme",
+  "homepage": "https://github.com/struct-defi/lossless-module#readme",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-etherscan": "^2.1.7",
