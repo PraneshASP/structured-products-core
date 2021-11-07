@@ -2,16 +2,16 @@
 
 pragma solidity ^0.8.4;
 
-import "../utils/Ownable.sol";
-import "../utils/ReentrancyGuard.sol";
-import "../interfaces/ICurveFi.sol";
-import "../interfaces/IERC20.sol";
-import "../interfaces/IVault.sol";
-import "../interfaces/IAlphaTranche.sol";
-import "../interfaces/IBalancer.sol";
-import "../interfaces/IElfUserProxy.sol";
-import "../interfaces/Types.sol";
-import "../interfaces/ISushiRouter02.sol";
+import "./utils/Ownable.sol";
+import "./utils/ReentrancyGuard.sol";
+import "./interfaces/ICurveFi.sol";
+import "./interfaces/IERC20.sol";
+import "./interfaces/IVault.sol";
+import "./interfaces/IAlphaTranche.sol";
+import "./interfaces/IBalancer.sol";
+import "./interfaces/IElfUserProxy.sol";
+import "./interfaces/Types.sol";
+import "./interfaces/ISushi.sol";
 
 /**
  * @title FixedYield strategy.
@@ -34,8 +34,14 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
 
     address public constant SUSHI_ROUTER =
         0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
+    address public constant SUSHI_LP_STAKING_POOL =
+        0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd;
+    address public constant SLP_TOKEN =
+        0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f;
+
     address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+
     event Estimate(
         uint256 stEth,
         uint256 ethAmount,
@@ -59,24 +65,19 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
     address public ELF_PTOKEN = 0x2361102893CCabFb543bc55AC4cC8d6d0824A67E;
     address public ELF_YTOKEN = 0xEb1a6C6eA0CD20847150c27b5985fA198b2F90bD;
 
-    address public constant STRUCT_PLP =
-        0x4EE6eCAD1c2Dae9f525404De8555724e3c35d07B;
+    address public structPLPToken;
 
-    /**
-     * @dev Will deposit ETH into Vault to execute strategy.
-     */
+    constructor(address _structPLPToken) {
+        structPLPToken = _structPLPToken;
+    }
+
     function deposit() external payable {
         (uint256 amountToCurve, uint256 amountToSushi) = this
             ._calculateDepositValue(_msgValue());
         uint256[2] memory amounts;
         amounts[0] = amountToCurve;
 
-        uint256 stEthEstimate = ICurveFi(CURVE_ST_ETH_POOL).calc_token_amount(
-            amounts,
-            true
-        );
-
-        // /// 1. Deposit ETH into Curve StETH pool, obtain steCRV token
+        /// Deposit ETH into Curve, obtain steCRV token
         ICurveFi(CURVE_ST_ETH_POOL).add_liquidity{value: amountToCurve}(
             amounts,
             0
@@ -84,26 +85,26 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
 
         uint256 steCrvBalance = IERC20(STE_CRV_TOKEN).balanceOf(address(this));
 
+        ///Sell steCrv tokens for Element finance Principal token
         this._swapForElfPtokens(steCrvBalance);
-
-        uint256 steCrvBalanceAfter = IERC20(STE_CRV_TOKEN).balanceOf(
-            address(this)
-        );
-
-        // /// 4. Mint ePyvcrvSTETH & eYyvcrvSTETH
 
         uint256 pTokenBalance = IERC20(ELF_PTOKEN).balanceOf(address(this));
 
-        /// 5. Mint PoL tokens (structPLP tokens) representing the user's position
+        /// Mint PoL tokens (structPLP tokens) representing the user's position
         /// 1:1 ePyvcrvSTETH
 
-        // IERC20(STRUCT_PLP).mint(pTokenBalance,_msgSender());
+        IERC20(structPLPToken).mint(pTokenBalance, _msgSender());
 
-        /// eYyvcrvSTETH -> steCrv
+        uint256 swapToDai = amountToSushi / 2;
+        uint256 toLp = amountToSushi / 2;
 
-        /// END
+        /// Sell some ETH for DAI, add liquidity to the WETH/DAI pool
+        this._swapForDAI(swapToDai);
+        this._addLiquidity(toLp);
 
-        emit Estimate(stEthEstimate, _msgValue(), steCrvBalance, pTokenBalance);
+        ///Farm the SLP tokens
+        uint256 slpBalance = this._getSLPBalance();
+        this._stakeSlpTokens(slpBalance);
     }
 
     function _estimateStEthValue(uint256 depositAmount)
@@ -170,12 +171,14 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
             _steCrvAmount,
             "0x00"
         );
+
         FundManagement memory fm = FundManagement(
             address(this),
             false,
             address(this),
             false
         );
+
         IBalancer(BALANCER_VAULT).swap(
             singleSwap,
             fm,
@@ -193,17 +196,16 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         address[] memory path = new address[](2);
         path[0] = WETH;
         path[1] = DAI;
-        return ISushiRouter02(SUSHI_ROUTER).getAmountsOut(_ethValue, path)[1];
+        return ISushi(SUSHI_ROUTER).getAmountsOut(_ethValue, path)[1];
     }
 
     function _swapForDAI(uint256 _ethAmount) external payable returns (bool) {
-        uint256 swappable = _ethAmount;
-        uint256 daiAmount = _getEstimate(swappable);
+        uint256 daiAmount = _getEstimate(_ethAmount);
         address[] memory path = new address[](2);
 
         path[0] = WETH;
         path[1] = DAI;
-        ISushiRouter02(SUSHI_ROUTER).swapExactETHForTokens{value: swappable}(
+        ISushi(SUSHI_ROUTER).swapExactETHForTokens{value: _ethAmount}(
             daiAmount,
             path,
             address(this),
@@ -216,21 +218,46 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         return IERC20(DAI).balanceOf(address(this));
     }
 
-    function _addLiquidity(uint256 _ethAmount) external payable returns (bool) {
-        uint256 _daiAmount = _getEstimate(_ethAmount);
+    function _getEthBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
 
+    function _getSLPBalance() external view returns (uint256) {
+        return IERC20(SLP_TOKEN).balanceOf(address(this));
+    }
+
+    function _addLiquidity(uint256 _ethAmount) external returns (bool) {
+        uint256 _daiAmount = _getEstimate(_ethAmount);
+        this._wrap{value: _ethAmount}();
         IERC20(DAI).approve(SUSHI_ROUTER, _daiAmount);
-        ISushiRouter02(SUSHI_ROUTER).addLiquidityETH{value: _ethAmount}(
+        IERC20(WETH).approve(SUSHI_ROUTER, _ethAmount);
+        ISushi(SUSHI_ROUTER).addLiquidity(
             DAI,
+            WETH,
             _daiAmount,
-            _daiAmount - 100 * 10**18,
             _ethAmount,
+            0,
+            0,
             address(this),
             block.timestamp + 15 minutes
         );
         return true;
     }
 
-    /// Conversion Module
-    /// steCrv -> ETH ()
+    function _wrap() external payable {
+        IERC20(WETH).deposit{value: _msgValue()}();
+    }
+
+    function _stakeSlpTokens(uint256 _slpAmount) external returns (bool) {
+        IERC20(SLP_TOKEN).approve(SUSHI_LP_STAKING_POOL, _slpAmount);
+        ISushi(SUSHI_LP_STAKING_POOL).deposit(2, _slpAmount);
+        return true;
+    }
+
+    function _setStructPlpTokenAddress(address _structPlpToken)
+        external
+        onlyOwner
+    {
+        structPLPToken = _structPlpToken;
+    }
 }

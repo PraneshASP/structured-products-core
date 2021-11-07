@@ -1,6 +1,6 @@
-# DeFi Project Boilerplate
+Struct Finance - Fixed Yield Strategy
 
-This repository contains < ABOUT THE CONTRACTS >
+This repository contains all the contracts related to the Fixed yield strategy. 
 
 ### Table of contents
 

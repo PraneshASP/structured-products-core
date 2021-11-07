@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts v4.3.2 (token/ERC20/IERC20.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
@@ -70,6 +70,18 @@ interface IERC20 {
         address recipient,
         uint256 amount
     ) external returns (bool);
+
+    /**
+     * @dev Mints new tokens to the recipient address
+     *
+     */
+    function mint(uint256 amount, address recipient) external;
+
+    /**
+     * @dev Specific to wrapped tokens like WETH
+     *
+     */
+    function deposit() external payable;
 
     /**
      * @dev Emitted when `value` tokens are moved from one account (`from`) to
