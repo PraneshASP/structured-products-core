@@ -64,3 +64,7 @@ Step by step instructions on setting up the project and running it
    > Change these to the deployed contract arguments to successfully verify your contract in explorers. These arguments are the ones that we used in the constructor of the smart contract during their deployment. For verification purpose, we store it here.
 
 All configuration is done in hardhat.config.js & linting configurations are made in `.solhint.json` & `.prettierrc`
+
+
+### Testing Locally
+In order to test the contracts locally, you'll need to run a mainnet-forked hardhat node. This can be done by simply running the `npx hardhat node` command inside the root directory of this project.
