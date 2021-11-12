@@ -1,15 +1,20 @@
- 
 import { ethers } from "hardhat";
 
 async function main() {
+  ///Deploy the Struct PLP token
+  const StructToken = await ethers.getContractFactory("StructPLP");
+  let structToken = await StructToken.deploy("Struct LP Token", "SPLP");
+  await structToken.deployed();
 
-  // We get the contract to deploy
-  const Greeter = await ethers.getContractFactory("Greeter");
-  const greeter = await Greeter.deploy("Hello, Hardhat!");
+  ///Deploy the FixedYieldStrategy Contract
+  const FY_Contract = await ethers.getContractFactory("FixedYieldStrategy");
 
-  await greeter.deployed();
+  const fyStrategy = await FY_Contract.deploy(structToken.address);
+  await fyStrategy.deployed();
 
-  console.log("Greeter deployed to:", greeter.address);
+  ///Add the FixedYield Strategy Contract as the Minter
+  structToken.addMinter(fyStrategy.address, true);
+  console.log("FY Strategy contract deployed", fyStrategy.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

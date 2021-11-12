@@ -18,19 +18,22 @@ describe("Deposit Test", function () {
   let fyStrategy: FixedYieldStrategy;
   before(async () => {
     [owner, user1, user2] = await ethers.getSigners();
+    const StructToken = await ethers.getContractFactory("StructPLP");
+    let structToken = await StructToken.deploy("Struct LP Token", "SPLP");
+    await structToken.deployed();
 
     const FY_Contract = await ethers.getContractFactory("FixedYieldStrategy");
 
-    fyStrategy = await FY_Contract.deploy();
+    fyStrategy = await FY_Contract.deploy(structToken.address);
     await fyStrategy.deployed();
+    structToken.addMinter(fyStrategy.address, true);
+
     console.log("FY Strategy contract deployed", fyStrategy.address);
   });
 
   it("should deposit ETH to the curve vault", async () => {
-    // let data = await fyStrategy.connect(user1).deposit({ value: BN("0.1") });
-    console.log("Fetching the current price....");
     const tx = await fyStrategy.deposit({ value: BN("1") });
-    const receipt = await tx.wait();
-    console.log(JSON.stringify(receipt, null, 4));
+    let receipt = await tx.wait();
+    console.log(receipt);
   });
 });
