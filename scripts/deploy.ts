@@ -3,7 +3,7 @@ import { ethers } from "hardhat";
 const PRICE_FEED = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
 
 //Change these while depolying!!!
-const CONTROLLER = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
+const CONTROLLER = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
 const TOKEN_NAME = "Struct LP Token";
 const TOKEN_SYMBOL = "SPLP";
 
@@ -16,6 +16,7 @@ async function main() {
     TOKEN_SYMBOL
   );
   await structToken.deployed();
+  console.log("Struct LP Token deployed", structToken.address);
 
   ///Deploy the Struct Oracle
   const StructOracle = await ethers.getContractFactory("StructOracle");
