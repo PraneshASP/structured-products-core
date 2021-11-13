@@ -56,7 +56,7 @@ contract StructPLP is ERC1155, ReentrancyGuard {
         address _userWallet,
         uint256 _plpTokens,
         uint256 _shareInPool
-    ) external onlyController nonReentrant returns (bool) {
+    ) external onlyController nonReentrant returns (uint256) {
         require(minters[_msgSender()], "Caller not minter");
         uint256 _id = _getNextTokenID();
         _incrementContractId();
@@ -64,7 +64,7 @@ contract StructPLP is ERC1155, ReentrancyGuard {
         positions[_id] = newPosition;
         _mint(_userWallet, _id, 1, ""); // Mint 1 StructPLP token to the user address
         emit PositionCreated(_id);
-        return true;
+        return _id;
     }
 
     /**

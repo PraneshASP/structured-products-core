@@ -5,5 +5,5 @@ interface IStructPLP {
         address newUser,
         uint256 _plpTokens,
         uint256 _shareInPool
-    ) external;
+    ) external returns (uint256);
 }

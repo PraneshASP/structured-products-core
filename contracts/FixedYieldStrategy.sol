@@ -48,11 +48,6 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
     address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 
-    event DepositSuccess(
-        uint256 ethAmount,
-        uint256 pTokenBalance,
-        uint256 valueReturned
-    );
     /**
      * @notice Yearn addresses
      */
@@ -75,6 +70,12 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
     // address public structPLPToken;
     IStructOracle structOracle;
     IStructPLP structPLPToken;
+
+    event DepositSuccess(
+        uint256 positionId,
+        uint256 pTokenAmount,
+        uint256 share
+    );
 
     constructor(address _structPLPToken, address _structOracle) {
         structPLPToken = IStructPLP(_structPLPToken);
@@ -101,7 +102,11 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         uint256 principalTokens = elfPTokensReceived;
         uint256 share = this._calculateShare(amountToSushi);
         yFactor += share;
-        structPLPToken.createNewPosition(_msgSender(), principalTokens, share);
+        uint256 positionId = structPLPToken.createNewPosition(
+            _msgSender(),
+            principalTokens,
+            share
+        );
 
         uint256 swapToDai = amountToSushi / 2;
         uint256 toLp = amountToSushi / 2;
@@ -114,6 +119,7 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         uint256 slpBalance = this._getSLPBalance();
         slpInFarm += slpBalance;
         this._stakeSlpTokens(slpBalance);
+        emit DepositSuccess(positionId, principalTokens, share);
     }
 
     function _estimateStEthValue(uint256 depositAmount)
