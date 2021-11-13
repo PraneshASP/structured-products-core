@@ -12,6 +12,9 @@ import "./interfaces/IBalancer.sol";
 import "./interfaces/IElfUserProxy.sol";
 import "./interfaces/Types.sol";
 import "./interfaces/ISushi.sol";
+import "./interfaces/IStructPLP.sol";
+import "./interfaces/IStructOracle.sol";
+import "./interfaces/ISLP.sol";
 
 /**
  * @title FixedYield strategy.
@@ -36,17 +39,19 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
     address public constant SUSHI_LP_STAKING_POOL =
         0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd;
+
     address public constant SLP_TOKEN =
         0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f;
+
+    uint256 public slpInFarm;
 
     address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 
-    event Estimate(
-        uint256 stEth,
+    event DepositSuccess(
         uint256 ethAmount,
-        uint256 setCrvSold,
-        uint256 pTokenBal
+        uint256 pTokenBalance,
+        uint256 valueReturned
     );
     /**
      * @notice Yearn addresses
@@ -65,13 +70,18 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
     address public ELF_PTOKEN = 0x2361102893CCabFb543bc55AC4cC8d6d0824A67E;
     address public ELF_YTOKEN = 0xEb1a6C6eA0CD20847150c27b5985fA198b2F90bD;
 
-    address public structPLPToken;
+    uint256 public yFactor = 0;
 
-    constructor(address _structPLPToken) {
-        structPLPToken = _structPLPToken;
+    // address public structPLPToken;
+    IStructOracle structOracle;
+    IStructPLP structPLPToken;
+
+    constructor(address _structPLPToken, address _structOracle) {
+        structPLPToken = IStructPLP(_structPLPToken);
+        structOracle = IStructOracle(_structOracle);
     }
 
-    function deposit() external payable {
+    function deposit() external payable nonReentrant {
         (uint256 amountToCurve, uint256 amountToSushi) = this
             ._calculateDepositValue(_msgValue());
         uint256[2] memory amounts;
@@ -86,24 +96,23 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         uint256 steCrvBalance = IERC20(STE_CRV_TOKEN).balanceOf(address(this));
 
         ///Sell steCrv tokens for Element finance Principal token
-        this._swapForElfPtokens(steCrvBalance);
+        uint256 elfPTokensReceived = this._swapForElfPtokens(steCrvBalance);
 
-        uint256 pTokenBalance = IERC20(ELF_PTOKEN).balanceOf(address(this));
-
-        /// Mint PoL tokens (structPLP tokens) representing the user's position
-        /// 1:1 ePyvcrvSTETH
-
-        IERC20(structPLPToken).mint(pTokenBalance, _msgSender());
+        uint256 principalTokens = elfPTokensReceived;
+        uint256 share = this._calculateShare(amountToSushi);
+        yFactor += share;
+        structPLPToken.createNewPosition(_msgSender(), principalTokens, share);
 
         uint256 swapToDai = amountToSushi / 2;
         uint256 toLp = amountToSushi / 2;
 
-        /// Sell some ETH for DAI, add liquidity to the WETH/DAI pool
+        /// Sell 50% of ETH for DAI and add liquidity to the WETH/DAI pool
         this._swapForDAI(swapToDai);
         this._addLiquidity(toLp);
 
         ///Farm the SLP tokens
         uint256 slpBalance = this._getSLPBalance();
+        slpInFarm += slpBalance;
         this._stakeSlpTokens(slpBalance);
     }
 
@@ -152,15 +161,22 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         //  ///Set to 5% for now. Need to fetch the real time rate from Alpha finance
         uint256 FIXED_RATE = 5;
 
-        uint256 toCurve = 1 *
-            10**18 -
-            (365 * 10**18) /
-            (DAYS_REMAINING * FIXED_RATE);
-        uint256 toAlpha = 1 * 10**18 - toCurve;
-        return (toCurve, toAlpha);
+        // uint256 toCurve = 1 *10**18 -
+        //     365 * 10**18 /
+        //     (DAYS_REMAINING * (10000+FIXED_RATE)/10**2); //TODO: Should be 1.05
+
+        uint256 toCurve = ((10**21 * 100) /
+            (100 * 10**3 + ((FIXED_RATE * DAYS_REMAINING * 1000) / 365)));
+
+        uint256 toSushi = 1 * 10**18 - toCurve;
+
+        return (toCurve, toSushi);
     }
 
-    function _swapForElfPtokens(uint256 _steCrvAmount) external returns (bool) {
+    function _swapForElfPtokens(uint256 _steCrvAmount)
+        external
+        returns (uint256)
+    {
         IERC20(STE_CRV_TOKEN).approve(BALANCER_VAULT, _steCrvAmount);
         bytes32 poolId = 0xb03c6b351a283bc1cd26b9cf6d7b0c4556013bdb0002000000000000000000ab;
         SingleSwap memory singleSwap = SingleSwap(
@@ -179,13 +195,13 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
             false
         );
 
-        IBalancer(BALANCER_VAULT).swap(
+        uint256 amountReceived = IBalancer(BALANCER_VAULT).swap(
             singleSwap,
             fm,
             0,
             block.timestamp + 10 minutes
         );
-        return true;
+        return amountReceived;
     }
 
     function getUnlockTimestamp() internal view returns (uint256) {
@@ -258,6 +274,29 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         external
         onlyOwner
     {
-        structPLPToken = _structPlpToken;
+        structPLPToken = IStructPLP(_structPlpToken);
+    }
+
+    function _calculateShare(uint256 _ethDeposited)
+        external
+        view
+        returns (uint256)
+    {
+        if (yFactor == 0) return _ethDeposited;
+        else {
+            uint256 _slpPrice = this._calculateSlpPrice();
+            uint256 _tvl = (_slpPrice * slpInFarm) / 10**18;
+            return ((_ethDeposited / _tvl) * yFactor);
+        }
+    }
+
+    function _calculateSlpPrice() external view returns (uint256) {
+        uint256 _currentEthPrice = structOracle.getLatestETHPrice();
+        (uint256 _daiReserve, uint256 _ethReserve, ) = ISLP(SLP_TOKEN)
+            .getReserves();
+        uint256 _totalSupply = ISLP(SLP_TOKEN).totalSupply();
+        uint256 _price = (_daiReserve + ((_currentEthPrice) * _ethReserve)) /
+            _totalSupply;
+        return (_price * 10**18) / _currentEthPrice;
     }
 }

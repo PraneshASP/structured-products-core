@@ -1,22 +1,95 @@
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "./utils/ReentrancyGuard.sol";
 
-contract StructPLP is ERC20 {
+/**
+ * @title Struct finance Principal LP token contract
+ * @author Pranesh
+ */
+
+contract StructPLP is ERC1155, ReentrancyGuard {
+    address public controller;
+    uint256 public _currentPositionId;
     mapping(address => bool) minters;
-    address public owner;
 
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) {
-        owner = _msgSender();
+    struct Position {
+        uint256 _id;
+        uint256 plpTokens; ///Number of principal tokens
+        uint256 shareInPool; ///Share of aggregator position
     }
 
+    mapping(uint256 => Position) public positions;
+
+    // Contract name
+    string public name;
+
+    // Contract symbol
+    string public symbol;
+
+    ///Events
+    event PositionCreated(uint256 positionId);
+
+    modifier onlyController() {
+        require(_msgSender() == controller, "Caller not controller");
+        _;
+    }
+
+    constructor(
+        address _controller,
+        string memory _name,
+        string memory _symbol
+    ) ERC1155("") {
+        controller = _controller;
+        name = _name;
+        symbol = _symbol;
+        _currentPositionId = 0;
+    }
+
+    /**
+     * @dev Creates a new position and mints a ERC1155 token to the user representing the position
+     * @param _userWallet  The wallet address to send the PLP tokens.
+     * @param _plpTokens   Number of principal tokens
+     * @param _shareInPool  Share of aggregator position
+     */
+    function createNewPosition(
+        address _userWallet,
+        uint256 _plpTokens,
+        uint256 _shareInPool
+    ) external onlyController nonReentrant returns (bool) {
+        require(minters[_msgSender()], "Caller not minter");
+        uint256 _id = _getNextTokenID();
+        _incrementContractId();
+        Position memory newPosition = Position(_id, _plpTokens, _shareInPool);
+        positions[_id] = newPosition;
+        _mint(_userWallet, _id, 1, ""); // Mint 1 StructPLP token to the user address
+        emit PositionCreated(_id);
+        return true;
+    }
+
+    /**
+    @dev Adds a new minter; only controller can call this method
+    @param minter - Wallet address of minter
+    @param enabled - set as 'true'/'false' to enable/disable    
+    */
+
     function addMinter(address minter, bool enabled) external {
-        require(_msgSender() == owner, "Caller not owner");
+        require(_msgSender() == controller, "Caller not controller");
         minters[minter] = enabled;
     }
 
-    function mint(uint256 value, address recipient) external {
-        require(minters[_msgSender()], "Caller not minter");
-        _mint(recipient, value);
+    /**
+     * @dev calculates the next token ID based on value of _currentPositionId
+     * @return uint256 for the next token ID
+     */
+    function _getNextTokenID() private view returns (uint256) {
+        return _currentPositionId + 1;
+    }
+
+    /**
+     * @dev increments the value of _currentPositionId
+     */
+    function _incrementContractId() private {
+        _currentPositionId++;
     }
 }

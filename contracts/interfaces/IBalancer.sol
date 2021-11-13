@@ -10,5 +10,5 @@ interface IBalancer is Types {
         FundManagement calldata funds,
         uint256 limit,
         uint256 deadline
-    ) external returns (uint256 assetDelta);
+    ) external returns (uint256 amountCalculated);
 }

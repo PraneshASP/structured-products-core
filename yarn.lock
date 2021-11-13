@@ -23,6 +23,11 @@
     "chalk" "^2.0.0"
     "js-tokens" "^4.0.0"
 
+"@chainlink/contracts@^0.2.2":
+  "integrity" "sha512-wxXPbt7O3aZaUSG34ufFASC5amRSL6eeYCqsa+2gpqbB8Hk7B7FydEDCI5dqvAC444TlFskPHcVbizCZkRHPpw=="
+  "resolved" "https://registry.npmjs.org/@chainlink/contracts/-/contracts-0.2.2.tgz"
+  "version" "0.2.2"
+
 "@codechecks/client@^0.1.0":
   "integrity" "sha512-2GHHvhO3kaOyxFXxOaiznlY8ARmz33/p+WQdhc2y6wzWw5eOl2wSwg1eZxx3LsWlAnB963Y4bd1YjZcGIhKRzA=="
   "resolved" "https://registry.npmjs.org/@codechecks/client/-/client-0.1.12.tgz"

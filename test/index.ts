@@ -19,12 +19,26 @@ describe("Deposit Test", function () {
   before(async () => {
     [owner, user1, user2] = await ethers.getSigners();
     const StructToken = await ethers.getContractFactory("StructPLP");
-    let structToken = await StructToken.deploy("Struct LP Token", "SPLP");
+    let structToken = await StructToken.deploy(
+      await owner.getAddress(),
+      "Struct LP Token",
+      "SPLP"
+    );
     await structToken.deployed();
+
+    ///Deploy the Struct Oracle
+    const StructOracle = await ethers.getContractFactory("StructOracle");
+    let structOracle = await StructOracle.deploy(
+      "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
+    );
+    await structOracle.deployed();
 
     const FY_Contract = await ethers.getContractFactory("FixedYieldStrategy");
 
-    fyStrategy = await FY_Contract.deploy(structToken.address);
+    fyStrategy = await FY_Contract.deploy(
+      structToken.address,
+      structOracle.address
+    );
     await fyStrategy.deployed();
     structToken.addMinter(fyStrategy.address, true);
 
