@@ -1,6 +1,7 @@
-Struct Finance - Fixed Yield Strategy
+## Struct Finance Smart contracts <br>
+[![built-with openzeppelin](https://img.shields.io/badge/built%20with-OpenZeppelin-3677FF)](https://docs.openzeppelin.com/)
 
-This repository contains all the contracts related to the Fixed yield strategy. 
+This repository contains the smart contracts source code and configuration for Structured product strategies. The repository uses Hardhat as development environment for compilation, testing and deployment tasks.
 
 ### Table of contents
 
@@ -31,15 +32,15 @@ The repository is built using hardhat. So it is recommended to install hardhat g
 Step by step instructions on setting up the project and running it
 
 1. Clone the repository
-   `git clone https://github.com/struct-defi/boilerplate`
+   `git clone https://github.com/struct-defi/struct-products-core`
 2. Install Dependencies
    `npm install`
 3. Compiling Smart Contracts (Auto compiles all .sol file inside contracts directory)
    `npx hardhat compile`
 4. Deploying Smart Contracts
-   `npx hardhat run scripts/<contract-name>_deploy.ts --network <network-name>`
+   `npx hardhat run ./scripts/deploy.ts --network <network-name>`
 
-   > Network name can be kovan for kovan testnet. For adding other networks, please configure them in hardhat.config.ts file in the root directory.
+   > Network name can be local for local hardhat network. For adding other networks, please configure them in hardhat.config.ts file in the root directory.
 
    > Name of the smart contracts can be found inside the scripts folders in the root directory.
 
@@ -68,3 +69,5 @@ All configuration is done in hardhat.config.js & linting configurations are made
 
 ### Testing Locally
 In order to test the contracts locally, you'll need to run a mainnet-forked hardhat node. This can be done by simply running the `npx hardhat node` command inside the root directory of this project.
+
+

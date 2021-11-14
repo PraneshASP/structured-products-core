@@ -15,55 +15,13 @@ import "./interfaces/ISushi.sol";
 import "./interfaces/IStructPLP.sol";
 import "./interfaces/IStructOracle.sol";
 import "./interfaces/ISLP.sol";
+import "./Constants.sol";
 
 /**
  * @title FixedYield strategy.
  */
 contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
-    /**
-     * @notice Curve addresses
-     */
-
-    address public constant CURVE_ST_ETH_POOL =
-        0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
-
-    uint256 SECONDS_PER_DAY = 86400;
-
-    address public constant STE_CRV_TOKEN =
-        0x06325440D014e39736583c165C2963BA99fAf14E;
-
-    address public constant BALANCER_VAULT =
-        0xBA12222222228d8Ba445958a75a0704d566BF2C8;
-
-    address public constant SUSHI_ROUTER =
-        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
-    address public constant SUSHI_LP_STAKING_POOL =
-        0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd;
-
-    address public constant SLP_TOKEN =
-        0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f;
-
     uint256 public slpInFarm;
-
-    address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-
-    /**
-     * @notice Yearn addresses
-     */
-
-    address public constant YEARN_ST_ETH_VAULT =
-        0xdCD90C7f6324cfa40d7169ef80b12031770B4325;
-
-    address public ALPHA_P_TRANCHE = 0x2361102893CCabFb543bc55AC4cC8d6d0824A67E;
-
-    address public yvCurve_stETH = 0xdCD90C7f6324cfa40d7169ef80b12031770B4325;
-    address public ELF_USER_PROXY = 0xEe4e158c03A10CBc8242350d74510779A364581C;
-    address public ELF_yvCurve_stETH =
-        0xB3295e739380BD68de96802F7c4Dba4e54477206;
-
-    address public ELF_PTOKEN = 0x2361102893CCabFb543bc55AC4cC8d6d0824A67E;
-    address public ELF_YTOKEN = 0xEb1a6C6eA0CD20847150c27b5985fA198b2F90bD;
 
     uint256 public yFactor = 0;
 
@@ -71,6 +29,7 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
     IStructOracle structOracle;
     IStructPLP structPLPToken;
 
+    ///Emit event on successful deposit
     event DepositSuccess(
         uint256 positionId,
         uint256 pTokenAmount,
@@ -82,6 +41,17 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         structOracle = IStructOracle(_structOracle);
     }
 
+    /**
+     * @dev This `deposit()` method works as follows
+     * 1. Split the deposit value into to parts A (X%) and B (1-X%)
+     * 2. A gets deposited into Curve StEth pool -> gets back setCrv tokens
+     * 3. The steCrv tokens are swapped for the Element finance principal tokens (ePyvcrvSTETH)
+     * 4. 50% of B is swapped for DAI on Sushi
+     * 5. Liquidity is added to the WETH/DAI pool
+     * 6. The received SLP tokens are farmed
+     * 7. Struct SP token(ERC1155) representing the user's position is minted to the user.
+     */
+
     function deposit() external payable nonReentrant {
         (uint256 amountToCurve, uint256 amountToSushi) = this
             ._calculateDepositValue(_msgValue());
@@ -89,18 +59,19 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         amounts[0] = amountToCurve;
 
         /// Deposit ETH into Curve, obtain steCRV token
-        ICurveFi(CURVE_ST_ETH_POOL).add_liquidity{value: amountToCurve}(
-            amounts,
-            0
+        ICurveFi(Constants.CURVE_ST_ETH_POOL).add_liquidity{
+            value: amountToCurve
+        }(amounts, 0);
+
+        uint256 steCrvBalance = IERC20(Constants.STE_CRV_TOKEN).balanceOf(
+            address(this)
         );
 
-        uint256 steCrvBalance = IERC20(STE_CRV_TOKEN).balanceOf(address(this));
-
-        ///Sell steCrv tokens for Element finance Principal token
-        uint256 elfPTokensReceived = this._swapForElfPtokens(steCrvBalance);
+        ///Sell steCrv tokens for Element finance Principal tokens (ePyvcrvSTETH)
+        uint256 elfPTokensReceived = _swapForElfPtokens(steCrvBalance);
 
         uint256 principalTokens = elfPTokensReceived;
-        uint256 share = this._calculateShare(amountToSushi);
+        uint256 share = _calculateShare(amountToSushi);
         yFactor += share;
         uint256 positionId = structPLPToken.createNewPosition(
             _msgSender(),
@@ -113,25 +84,40 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
 
         /// Sell 50% of ETH for DAI and add liquidity to the WETH/DAI pool
         this._swapForDAI(swapToDai);
-        this._addLiquidity(toLp);
+        _addLiquidity(toLp);
 
         ///Farm the SLP tokens
         uint256 slpBalance = this._getSLPBalance();
         slpInFarm += slpBalance;
-        this._stakeSlpTokens(slpBalance);
+        _stakeSlpTokens(slpBalance);
         emit DepositSuccess(positionId, principalTokens, share);
     }
 
-    function _estimateStEthValue(uint256 depositAmount)
-        external
-        view
-        returns (uint256)
-    {
-        uint256[2] memory amounts;
-        amounts[0] = depositAmount;
-        return ICurveFi(CURVE_ST_ETH_POOL).calc_token_amount(amounts, true);
-    }
+    // /**
+    //  * @dev Estimates the stEth amount that'll be sent from CurveFi
+    //  * @param depositAmount - Amount of ETH to be deposited to Curve StEth Pool
+    //  * @return The estimated value of StEth from CurveFi
+    //  */
 
+    // function _estimateStEthValue(uint256 depositAmount)
+    //     external
+    //     view
+    //     returns (uint256)
+    // {
+    //     uint256[2] memory amounts;
+    //     amounts[0] = depositAmount;
+    //     return
+    //         ICurveFi(Constants.CURVE_ST_ETH_POOL).calc_token_amount(
+    //             amounts,
+    //             true
+    //         );
+    // }
+
+    /**
+     * @dev Used to calculate the value to be deposited on CurveFi and Sushi
+     * @param ethAmount - Amount of ETH deposited by the caller/user
+     * @return The value to be sent to Sushi and Curve Pool
+     */
     function _calculateDepositValue(uint256 ethAmount)
         external
         view
@@ -146,12 +132,17 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         return (amountToCurve / 10**18, amountToAlphaFinance / 10**18);
     }
 
-    function getDaysRemainingForMaturity(uint256 TRANCHE_END_TIMESTAMP)
+    /**
+     * @dev Utility function to calculate the number of days to mature
+     * @param trancheEndsAt Tranche end timestamp
+     * @return The number of days remaining to mature
+     */
+    function getDaysRemainingForMaturity(uint256 trancheEndsAt)
         external
         view
         returns (uint256)
     {
-        return (TRANCHE_END_TIMESTAMP - block.timestamp) / SECONDS_PER_DAY;
+        return (trancheEndsAt - block.timestamp) / Constants.SECONDS_PER_DAY;
     }
 
     function _calculateDepositPercent()
@@ -159,37 +150,42 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         view
         returns (uint256, uint256)
     {
-        uint256 TRANCHE_END_TIMESTAMP = getUnlockTimestamp();
+        uint256 trancheEndsAt = _getUnlockTimestamp();
 
-        uint256 DAYS_REMAINING = this.getDaysRemainingForMaturity(
-            TRANCHE_END_TIMESTAMP
-        );
-        //  ///Set to 5% for now. Need to fetch the real time rate from Alpha finance
-        uint256 FIXED_RATE = 5;
+        uint256 daysRemaining = this.getDaysRemainingForMaturity(trancheEndsAt);
 
-        // uint256 toCurve = 1 *10**18 -
-        //     365 * 10**18 /
-        //     (DAYS_REMAINING * (10000+FIXED_RATE)/10**2); //TODO: Should be 1.05
+        ///Fixed rate set to 5% for now.
+        ///Need to fetch the real time rate from Alpha finance
 
         uint256 toCurve = ((10**21 * 100) /
-            (100 * 10**3 + ((FIXED_RATE * DAYS_REMAINING * 1000) / 365)));
+            (100 *
+                10**3 +
+                ((Constants.FIXED_RATE * daysRemaining * 1000) / 365)));
 
         uint256 toSushi = 1 * 10**18 - toCurve;
 
         return (toCurve, toSushi);
     }
 
+    /**
+     * @dev Used to swap the steCrv for ePyvcrvSTETH on Balancer
+     * @param _steCrvAmount - Amount of ETH to be deposited
+     * @return The received ePyvcrvSTETH from balancer
+     */
     function _swapForElfPtokens(uint256 _steCrvAmount)
-        external
+        internal
         returns (uint256)
     {
-        IERC20(STE_CRV_TOKEN).approve(BALANCER_VAULT, _steCrvAmount);
+        IERC20(Constants.STE_CRV_TOKEN).approve(
+            Constants.BALANCER_VAULT,
+            _steCrvAmount
+        );
         bytes32 poolId = 0xb03c6b351a283bc1cd26b9cf6d7b0c4556013bdb0002000000000000000000ab;
         SingleSwap memory singleSwap = SingleSwap(
             poolId,
             SwapKind.GIVEN_IN,
-            STE_CRV_TOKEN,
-            ELF_PTOKEN,
+            Constants.STE_CRV_TOKEN,
+            Constants.ELF_PTOKEN,
             _steCrvAmount,
             "0x00"
         );
@@ -201,33 +197,44 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
             false
         );
 
-        uint256 amountReceived = IBalancer(BALANCER_VAULT).swap(
+        uint256 amountReceived = IBalancer(Constants.BALANCER_VAULT).swap(
             singleSwap,
             fm,
             0,
-            block.timestamp + 10 minutes
+            block.timestamp + 2 minutes
         );
         return amountReceived;
     }
 
-    function getUnlockTimestamp() internal view returns (uint256) {
-        return IAlphaTranche(ALPHA_P_TRANCHE).unlockTimestamp();
+    /// Returns the tranche end timestamp
+    function _getUnlockTimestamp() internal view returns (uint256) {
+        return IAlphaTranche(Constants.ALPHA_P_TRANCHE).unlockTimestamp();
     }
 
-    function _getEstimate(uint256 _ethValue) public view returns (uint256) {
+    /// Returns the swap path based on the assets passed
+    function _constructPath(address asset1, address asset2)
+        internal
+        view
+        returns (address[] memory)
+    {
         address[] memory path = new address[](2);
-        path[0] = WETH;
-        path[1] = DAI;
-        return ISushi(SUSHI_ROUTER).getAmountsOut(_ethValue, path)[1];
+        path[0] = asset1;
+        path[1] = asset2;
+        return path;
     }
 
+    function _getEstimate(uint256 _ethAmount) public view returns (uint256) {
+        address[] memory path = _constructPath(Constants.WETH, Constants.DAI);
+        return
+            ISushi(Constants.SUSHI_ROUTER).getAmountsOut(_ethAmount, path)[1];
+    }
+
+    ///Swap ETH for DAI
     function _swapForDAI(uint256 _ethAmount) external payable returns (bool) {
         uint256 daiAmount = _getEstimate(_ethAmount);
-        address[] memory path = new address[](2);
+        address[] memory path = _constructPath(Constants.WETH, Constants.DAI);
 
-        path[0] = WETH;
-        path[1] = DAI;
-        ISushi(SUSHI_ROUTER).swapExactETHForTokens{value: _ethAmount}(
+        ISushi(Constants.SUSHI_ROUTER).swapExactETHForTokens{value: _ethAmount}(
             daiAmount,
             path,
             address(this),
@@ -237,7 +244,7 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
     }
 
     function _getBalanceOfDAI() external view returns (uint256) {
-        return IERC20(DAI).balanceOf(address(this));
+        return IERC20(Constants.DAI).balanceOf(address(this));
     }
 
     function _getEthBalance() external view returns (uint256) {
@@ -245,34 +252,38 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
     }
 
     function _getSLPBalance() external view returns (uint256) {
-        return IERC20(SLP_TOKEN).balanceOf(address(this));
+        return IERC20(Constants.SLP_TOKEN).balanceOf(address(this));
     }
 
-    function _addLiquidity(uint256 _ethAmount) external returns (bool) {
+    function _wrap() external payable {
+        IERC20(Constants.WETH).deposit{value: _msgValue()}();
+    }
+
+    ///Adds liquidity to the Sushi LP
+    function _addLiquidity(uint256 _ethAmount) internal returns (bool) {
         uint256 _daiAmount = _getEstimate(_ethAmount);
         this._wrap{value: _ethAmount}();
-        IERC20(DAI).approve(SUSHI_ROUTER, _daiAmount);
-        IERC20(WETH).approve(SUSHI_ROUTER, _ethAmount);
-        ISushi(SUSHI_ROUTER).addLiquidity(
-            DAI,
-            WETH,
+        IERC20(Constants.DAI).approve(Constants.SUSHI_ROUTER, _daiAmount);
+        IERC20(Constants.WETH).approve(Constants.SUSHI_ROUTER, _ethAmount);
+        ISushi(Constants.SUSHI_ROUTER).addLiquidity(
+            Constants.DAI,
+            Constants.WETH,
             _daiAmount,
             _ethAmount,
             0,
             0,
             address(this),
-            block.timestamp + 15 minutes
+            block.timestamp + 5 minutes
         );
         return true;
     }
 
-    function _wrap() external payable {
-        IERC20(WETH).deposit{value: _msgValue()}();
-    }
-
-    function _stakeSlpTokens(uint256 _slpAmount) external returns (bool) {
-        IERC20(SLP_TOKEN).approve(SUSHI_LP_STAKING_POOL, _slpAmount);
-        ISushi(SUSHI_LP_STAKING_POOL).deposit(2, _slpAmount);
+    function _stakeSlpTokens(uint256 _slpAmount) internal returns (bool) {
+        IERC20(Constants.SLP_TOKEN).approve(
+            Constants.SUSHI_LP_STAKING_POOL,
+            _slpAmount
+        );
+        ISushi(Constants.SUSHI_LP_STAKING_POOL).deposit(2, _slpAmount);
         return true;
     }
 
@@ -283,26 +294,27 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         structPLPToken = IStructPLP(_structPlpToken);
     }
 
+    function _calculateSlpPrice() internal view returns (uint256) {
+        uint256 _currentEthPrice = structOracle.getLatestETHPrice();
+        (uint256 _daiReserve, uint256 _ethReserve, ) = ISLP(Constants.SLP_TOKEN)
+            .getReserves();
+        uint256 _totalSupply = ISLP(Constants.SLP_TOKEN).totalSupply();
+        uint256 _price = (_daiReserve + ((_currentEthPrice) * _ethReserve)) /
+            _totalSupply;
+        return (_price * 10**18) / _currentEthPrice;
+    }
+
+    /// Calculates the share of the user in aggregator pool
     function _calculateShare(uint256 _ethDeposited)
-        external
+        internal
         view
         returns (uint256)
     {
         if (yFactor == 0) return _ethDeposited;
         else {
-            uint256 _slpPrice = this._calculateSlpPrice();
+            uint256 _slpPrice = _calculateSlpPrice();
             uint256 _tvl = (_slpPrice * slpInFarm) / 10**18;
             return ((_ethDeposited / _tvl) * yFactor);
         }
-    }
-
-    function _calculateSlpPrice() external view returns (uint256) {
-        uint256 _currentEthPrice = structOracle.getLatestETHPrice();
-        (uint256 _daiReserve, uint256 _ethReserve, ) = ISLP(SLP_TOKEN)
-            .getReserves();
-        uint256 _totalSupply = ISLP(SLP_TOKEN).totalSupply();
-        uint256 _price = (_daiReserve + ((_currentEthPrice) * _ethReserve)) /
-            _totalSupply;
-        return (_price * 10**18) / _currentEthPrice;
     }
 }
