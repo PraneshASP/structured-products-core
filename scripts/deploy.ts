@@ -22,6 +22,7 @@ async function main() {
   const StructOracle = await ethers.getContractFactory("StructOracle");
   let structOracle = await StructOracle.deploy(PRICE_FEED);
   await structOracle.deployed();
+  console.log("Struct Oracle deployed", structOracle.address);
 
   ///Deploy the FixedYieldStrategy Contract
   const FyContract = await ethers.getContractFactory("FixedYieldStrategy");

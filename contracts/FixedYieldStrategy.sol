@@ -20,10 +20,15 @@ import "./Constants.sol";
 /**
  * @title FixedYield strategy.
  */
+/**
+ * @title FixedYield strategy.
+ */
 contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
     uint256 public slpInFarm;
+    uint256 public totalPrincipalTokens = 0;
 
-    uint256 public yFactor = 0;
+    uint256 public aFactor = 0;
+    uint256 public pFactor = 0;
 
     // address public structPLPToken;
     IStructOracle structOracle;
@@ -70,13 +75,20 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         ///Sell steCrv tokens for Element finance Principal tokens (ePyvcrvSTETH)
         uint256 elfPTokensReceived = _swapForElfPtokens(steCrvBalance);
 
-        uint256 principalTokens = elfPTokensReceived;
-        uint256 share = _calculateShare(amountToSushi);
-        yFactor += share;
+        uint256 principalTokenShare = this._calculatePrincipalTokensShare(
+            elfPTokensReceived
+        );
+
+        pFactor += principalTokenShare;
+        totalPrincipalTokens += elfPTokensReceived;
+
+        uint256 aggregatorShare = this._calculateAggregatorShare(amountToSushi);
+        aFactor += aggregatorShare;
+
         uint256 positionId = structPLPToken.createNewPosition(
             _msgSender(),
-            principalTokens,
-            share
+            principalTokenShare,
+            aggregatorShare
         );
 
         uint256 swapToDai = amountToSushi / 2;
@@ -90,7 +102,7 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         uint256 slpBalance = this._getSLPBalance();
         slpInFarm += slpBalance;
         _stakeSlpTokens(slpBalance);
-        emit DepositSuccess(positionId, principalTokens, share);
+        emit DepositSuccess(positionId, principalTokenShare, aggregatorShare);
     }
 
     // /**
@@ -305,16 +317,25 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
     }
 
     /// Calculates the share of the user in aggregator pool
-    function _calculateShare(uint256 _ethDeposited)
-        internal
+    function _calculateAggregatorShare(uint256 _ethDeposited)
+        external
         view
         returns (uint256)
     {
-        if (yFactor == 0) return _ethDeposited;
+        if (aFactor == 0) return _ethDeposited;
         else {
             uint256 _slpPrice = _calculateSlpPrice();
             uint256 _tvl = (_slpPrice * slpInFarm) / 10**18;
-            return ((_ethDeposited / _tvl) * yFactor);
+            return (_ethDeposited * aFactor) / _tvl;
         }
+    }
+
+    function _calculatePrincipalTokensShare(uint256 _elfPTokensReceived)
+        external
+        view
+        returns (uint256)
+    {
+        if (pFactor == 0) return _elfPTokensReceived;
+        else return (_elfPTokensReceived * pFactor) / totalPrincipalTokens;
     }
 }
