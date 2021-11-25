@@ -92,4 +92,15 @@ contract StructPLP is ERC1155, ReentrancyGuard {
     function _incrementContractId() private {
         _currentPositionId++;
     }
+
+    function getPositionDetails(uint256 _positionId)
+        external
+        view
+        returns (uint256, uint256)
+    {
+        return (
+            positions[_positionId].plpTokens,
+            positions[_positionId].shareInPool
+        );
+    }
 }

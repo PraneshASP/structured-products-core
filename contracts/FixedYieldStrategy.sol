@@ -338,4 +338,32 @@ contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
         if (pFactor == 0) return _elfPTokensReceived;
         else return (_elfPTokensReceived * pFactor) / totalPrincipalTokens;
     }
+
+    function _getElfPrincipalPrice() external view returns (uint256) {
+        //TODO Return actual price;
+
+        return 5 * 10**16; //0.05 ETH
+    }
+
+    function _getElfPrincipalTokenBalance() external view returns (uint256) {
+        return IERC20(Constants.ELF_PTOKEN).balanceOf(address(this));
+    }
+
+    function _getTotalPrincipalValue() external view returns (uint256) {
+        return
+            (this._getElfPrincipalPrice() *
+                this._getElfPrincipalTokenBalance()) / 10**18;
+    }
+
+    function _getTotalAggregatorValue() external view returns (uint256) {
+        return (_calculateSlpPrice() * slpInFarm) / 10**18;
+    }
+
+    function _getPFactor() external view returns (uint256) {
+        return pFactor;
+    }
+
+    function _getAFactor() external view returns (uint256) {
+        return aFactor;
+    }
 }

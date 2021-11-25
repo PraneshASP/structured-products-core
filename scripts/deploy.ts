@@ -7,6 +7,9 @@ const CONTROLLER = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
 const TOKEN_NAME = "Struct LP Token";
 const TOKEN_SYMBOL = "SPLP";
 
+// Lending Pool Config
+const LTV_LIMIT = 75;
+
 async function main() {
   ///Deploy the Struct PLP token
   const StructToken = await ethers.getContractFactory("StructPLP");
@@ -44,13 +47,15 @@ async function main() {
   const SToken = await ethers.getContractFactory("SToken");
   let sToken = await SToken.deploy("Struct SP Token", "SSP", CONTROLLER);
   await sToken.deployed();
-  console.log("Struct LP Token deployed", structToken.address);
+  console.log("Struct SToken deployed", sToken.address);
   ///Deploy the LendingPool Contract
   const LPContract = await ethers.getContractFactory("LendingPool");
 
   const lpContract = await LPContract.deploy(
     structToken.address,
-    sToken.address
+    sToken.address,
+    fyStrategy.address,
+    LTV_LIMIT
   );
 
   await lpContract.deployed();
