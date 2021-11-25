@@ -33,10 +33,33 @@ async function main() {
   );
 
   await fyStrategy.deployed();
+  console.log("FY Strategy contract deployed", fyStrategy.address);
+
   ///Add the FixedYield Strategy Contract as the Minter
   structToken.addMinter(fyStrategy.address, true);
 
-  console.log("FY Strategy contract deployed", fyStrategy.address);
+  console.log("Strategy contract set as SPToken minter");
+
+  ///Deploy the SToken
+  const SToken = await ethers.getContractFactory("SToken");
+  let sToken = await SToken.deploy("Struct SP Token", "SSP", CONTROLLER);
+  await sToken.deployed();
+  console.log("Struct LP Token deployed", structToken.address);
+  ///Deploy the LendingPool Contract
+  const LPContract = await ethers.getContractFactory("LendingPool");
+
+  const lpContract = await LPContract.deploy(
+    structToken.address,
+    sToken.address
+  );
+
+  await lpContract.deployed();
+  console.log("Lending Pool contract deployed", lpContract.address);
+
+  ///Add the Lending Pool Contract as the Minter
+  sToken.addMinter(lpContract.address, true);
+
+  console.log("Lending Pool contract set as SToken minter");
 }
 
 // We recommend this pattern to be able to use async/await everywhere
