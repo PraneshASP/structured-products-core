@@ -184,9 +184,11 @@ contract LendingPool is Context, ERC1155Holder {
         view
         returns (uint256)
     {
-        return
-            ltvLimit *
-            (this._getCollateralValue(_user) - this._getDebtValueOfUser(_user));
+        uint256 collateralValueOfUser = this._getCollateralValue(_user);
+        uint256 debtValueOfUser = this._getDebtValueOfUser(_user);
+        uint256 collateralFactor = (ltvLimit * collateralValueOfUser) / 10**2;
+        if (collateralFactor < debtValueOfUser) return 0;
+        return collateralFactor - debtValueOfUser;
     }
 
     function borrow(uint256 _borrowAmount) external returns (bool) {
