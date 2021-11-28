@@ -151,8 +151,8 @@ contract LendingPool is Context, ERC1155Holder {
         uint256 pFactor = strategy._getPFactor();
         uint256 aFactor = strategy._getAFactor();
 
-        uint256 pVal = (userPrincipalShare / pFactor) * totalPrincipalValue;
-        uint256 aVal = (userAggregatorShare / aFactor) * totalAggregatorValue;
+        uint256 pVal = ((userPrincipalShare * totalPrincipalValue) / pFactor);
+        uint256 aVal = ((userAggregatorShare * totalAggregatorValue) / aFactor);
 
         return pVal + aVal;
     }
