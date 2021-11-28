@@ -1,51 +1,53 @@
-import { Signer } from "@ethersproject/abstract-signer";
-import { BigNumber } from "ethers";
-import { ethers } from "hardhat";
-import { FixedYieldStrategy } from "../typechain";
+/// TODO: Add unit tests
 
-function BN(number: string) {
-  return ethers.utils.parseEther(number.toString());
-}
+// import { Signer } from "@ethersproject/abstract-signer";
+// import { BigNumber } from "ethers";
+// import { ethers } from "hardhat";
+// import { FixedYieldStrategy } from "../typechain";
 
-function toNumber(bn: BigNumber) {
-  return ethers.utils.formatEther(bn);
-}
+// function BN(number: string) {
+//   return ethers.utils.parseEther(number.toString());
+// }
 
-let owner: Signer, user1: Signer, user2: Signer;
-describe("Deposit Test", function () {
-  let fyStrategy: FixedYieldStrategy;
-  before(async () => {
-    [owner, user1, user2] = await ethers.getSigners();
-    const StructToken = await ethers.getContractFactory("StructPLP");
-    let structToken = await StructToken.deploy(
-      await owner.getAddress(),
-      "Struct LP Token",
-      "SPLP"
-    );
-    await structToken.deployed();
+// function toNumber(bn: BigNumber) {
+//   return ethers.utils.formatEther(bn);
+// }
 
-    ///Deploy the Struct Oracle
-    const StructOracle = await ethers.getContractFactory("StructOracle");
-    let structOracle = await StructOracle.deploy(
-      "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
-    );
-    await structOracle.deployed();
+// let owner: Signer, user1: Signer, user2: Signer;
+// describe("Deposit Test", function () {
+//   let fyStrategy: FixedYieldStrategy;
+//   before(async () => {
+//     [owner, user1, user2] = await ethers.getSigners();
+//     const StructToken = await ethers.getContractFactory("StructPLP");
+//     let structToken = await StructToken.deploy(
+//       await owner.getAddress(),
+//       "Struct LP Token",
+//       "SPLP"
+//     );
+//     await structToken.deployed();
 
-    const FY_Contract = await ethers.getContractFactory("FixedYieldStrategy");
+//     ///Deploy the Struct Oracle
+//     const StructOracle = await ethers.getContractFactory("StructOracle");
+//     let structOracle = await StructOracle.deploy(
+//       "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
+//     );
+//     await structOracle.deployed();
 
-    fyStrategy = await FY_Contract.deploy(
-      structToken.address,
-      structOracle.address
-    );
-    await fyStrategy.deployed();
-    structToken.addMinter(fyStrategy.address, true);
+//     const FY_Contract = await ethers.getContractFactory("FixedYieldStrategy");
 
-    console.log("FY Strategy contract deployed", fyStrategy.address);
-  });
+//     fyStrategy = await FY_Contract.deploy(
+//       structToken.address,
+//       structOracle.address
+//     );
+//     await fyStrategy.deployed();
+//     structToken.addMinter(fyStrategy.address, true);
 
-  it("should deposit ETH to the curve vault", async () => {
-    const tx = await fyStrategy.deposit({ value: BN("1") });
-    let receipt = await tx.wait();
-    console.log(receipt);
-  });
-});
+//     console.log("FY Strategy contract deployed", fyStrategy.address);
+//   });
+
+//   it("should deposit ETH to the curve vault", async () => {
+//     const tx = await fyStrategy.deposit({ value: BN("1") });
+//     let receipt = await tx.wait();
+//     console.log(receipt);
+//   });
+// });
