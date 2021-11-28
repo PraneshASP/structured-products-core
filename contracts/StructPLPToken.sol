@@ -5,7 +5,7 @@ import "./utils/ReentrancyGuard.sol";
 
 /**
  * @title Struct finance Principal LP token contract
- * @author Pranesh
+ * @author StructFi
  */
 
 contract StructPLP is ERC1155, ReentrancyGuard {

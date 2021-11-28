@@ -18,11 +18,9 @@ import "./interfaces/ISLP.sol";
 import "./Constants.sol";
 
 /**
- * @title FixedYield strategy.
+ * @title FixedYield strategy contract.
  */
-/**
- * @title FixedYield strategy.
- */
+
 contract FixedYieldStrategy is Ownable, ReentrancyGuard, Types {
     uint256 public slpInFarm;
     uint256 public totalPrincipalTokens = 0;

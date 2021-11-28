@@ -25,7 +25,9 @@ contract LendingPool is Context, ERC1155Holder {
     address public immutable RESERVE;
     address public immutable STRATEGY;
 
-    uint256 public totalDeposited;
+    // Temp value (Actual value will be calculated in lendEth method)
+    uint256 public totalDeposited = 100 * 10**18;
+
     uint256 public totalDebt;
     uint256 public dFactor;
 
@@ -47,6 +49,7 @@ contract LendingPool is Context, ERC1155Holder {
         uint256 aShare;
     }
 
+    /// Liquidations - WIP
     constructor(
         address _reserve,
         address _sToken,
@@ -61,6 +64,12 @@ contract LendingPool is Context, ERC1155Holder {
         //  liquidationBonus=_liqBonus;
     }
 
+    /// TODO: ADD EVENTS
+
+    /**
+     * @dev Used to deposit collateral into the lending pool
+     * @param _spTokenId - ID of the SP token to be deposited as collateral
+     */
     function depositCollateral(uint256 _spTokenId) external {
         require(
             IStructPLP(RESERVE).isApprovedForAll(_msgSender(), address(this)),
