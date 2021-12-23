@@ -15,7 +15,7 @@ This repository contains the smart contracts source code and configuration for S
 
 - [Hardhat](https://hardhat.org/) - Smart Contract Development Suite
 - [OpenZeppelin](https://openzeppelin.com/contracts/) - Battle-tested libraries of smart contracts
-- [Chainlink] (https://chain.link/) - Decentralized oracle networks for price feeds & more. 
+- [Chainlink](https://chain.link/) - Decentralized oracle networks for price feeds & more. 
 - [Solhint](https://protofire.github.io/solhint/) - Linting Suite
 - [Prettier](https://github.com/prettier-solidity/prettier-plugin-solidity) - Automatic Code Formatting
 - [Solidity](https://docs.soliditylang.org/en/v0.8.6/) - Smart Contract Programming Language
