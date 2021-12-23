@@ -5,19 +5,28 @@ This repository contains the smart contracts source code and configuration for S
 
 ### Table of contents
 
+- [Introduction](#introduction)
 - [Getting Started](#getting-started)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Project structure](#project-structure)
 
-### Built with
+### Tools & Frameworks used
 
 - [Hardhat](https://hardhat.org/) - Smart Contract Development Suite
+- [OpenZeppelin](https://openzeppelin.com/contracts/) - Battle-tested libraries of smart contracts
+- [Chainlink] (https://chain.link/) - Decentralized oracle networks for price feeds & more. 
 - [Solhint](https://protofire.github.io/solhint/) - Linting Suite
 - [Prettier](https://github.com/prettier-solidity/prettier-plugin-solidity) - Automatic Code Formatting
 - [Solidity](https://docs.soliditylang.org/en/v0.8.6/) - Smart Contract Programming Language
 
 ---
+
+## Introduction
+
+This project contains the Smart contracts for the MVP of Structured products protocol, which provides various options for tokenizing yield-bearing positions & complex derivatives to provide investors & institutions with a simple investment product, tailored to their risk profile. 
+
+> You can find more details here [https://devpost.com/software/struct-finance](https://devpost.com/software/struct-finance)
 
 ## Getting Started
 
@@ -32,7 +41,7 @@ The repository is built using hardhat. So it is recommended to install hardhat g
 Step by step instructions on setting up the project and running it
 
 1. Clone the repository
-   `git clone https://github.com/struct-defi/struct-products-core`
+   `git clone https://github.com/PraneshASP/structured-products-core`
 2. Install Dependencies
    `npm install`
 3. Compiling Smart Contracts (Auto compiles all .sol file inside contracts directory)
@@ -55,12 +64,11 @@ Step by step instructions on setting up the project and running it
 1. All contract codes, interfaces and utilites imported in the smart contracts can be found at [/contracts](./contracts)
 2. All contract interfaces are found at [/contracts/interfaces](./contracts/interfaces).
 3. Deployment scripts for deploying the smart contracts can be found at [/scripts](./scripts)
-4. All unit tests can be found at [/test](./test)
 
    > These are the codes that have to be created while deploying the smart contracts. Make sure the arguments
    > are appropriate before deployment.
 
-5. Verification arguments are added and stored as .js files inside [/arguments](./arguments)
+4. Verification arguments are added and stored as .js files inside [/arguments](./arguments)
 
    > Change these to the deployed contract arguments to successfully verify your contract in explorers. These arguments are the ones that we used in the constructor of the smart contract during their deployment. For verification purpose, we store it here.
 

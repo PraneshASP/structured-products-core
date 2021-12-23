@@ -1,6 +1,6 @@
 {
-  "name": "struct-lossless-module",
-  "description": "Lossless module implementation.",
+  "name": "struct-products-core",
+  "description": "This project includes the smart contract for the structured products.",
   "version": "1.0.0",
   "main": ".eslintrc.js",
   "directories": {
@@ -12,14 +12,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/struct-defi/lossless-module.git"
+    "url": "git+https://github.com/PraneshASP/structured-products-core.git"
   },
   "author": "Pranesh A S",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/struct-defi/lossless-module/issues"
+    "url": "https://github.com/PraneshASP/structured-products-core/issues"
   },
-  "homepage": "https://github.com/struct-defi/lossless-module#readme",
+  "homepage": "https://github.com/PraneshASP/structured-products-core#readme",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-etherscan": "^2.1.7",
