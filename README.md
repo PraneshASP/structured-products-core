@@ -1,4 +1,4 @@
-## Struct Finance Smart contracts <br>
+## Structured Products - Smart contracts <br>
 [![built-with openzeppelin](https://img.shields.io/badge/built%20with-OpenZeppelin-3677FF)](https://docs.openzeppelin.com/)
 
 This repository contains the smart contracts source code and configuration for Structured product strategies. The repository uses Hardhat as development environment for compilation, testing and deployment tasks.
