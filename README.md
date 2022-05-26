@@ -28,7 +28,6 @@ This project contains the Smart contracts for the MVP of Structured products pro
 
 We also won the **Top Quality Prize**🏆 at the Chainlink Fall Hackathon 2021 for this project.   
 
-> You can find more details here [https://devpost.com/software/struct-finance](https://devpost.com/software/struct-finance)
 
 ## Getting Started
 
